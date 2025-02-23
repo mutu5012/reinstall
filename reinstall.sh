@@ -4,14 +4,14 @@
 
 set -eE
 confhome=https://raw.githubusercontent.com/bin456789/reinstall/main
-confhome_cn=https://jihulab.com/bin456789/reinstall/-/raw/main
+confhome_cn=https://gitlab.com/bin456789/reinstall/-/raw/main
 # confhome_cn=https://www.ghproxy.cc/https://raw.githubusercontent.com/bin456789/reinstall/main
 
 # 默认密码
 DEFAULT_PASSWORD=123@@@
 
 # 用于判断 reinstall.sh 和 trans.sh 是否兼容
-SCRIPT_VERSION=4BACD833-A585-23BA-6CBB-9AA4E08E0002
+SCRIPT_VERSION=4BACD833-A585-23BA-6CBB-9AA4E08E0003
 
 # 记录要用到的 windows 程序，运行时输出删除 \r
 WINDOWS_EXES='cmd powershell wmic reg diskpart netsh bcdedit mountvol'
@@ -21,6 +21,7 @@ WINDOWS_EXES='cmd powershell wmic reg diskpart netsh bcdedit mountvol'
 export LC_ALL=C
 
 # 处理部分用户用 su 切换成 root 导致环境变量没 sbin 目录
+# 也能处理 cygwin bash 没有添加 -l 运行 reinstall.sh
 # 不要漏了最后的 $PATH，否则会找不到 windows 系统程序例如 diskpart
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH
 
@@ -47,7 +48,7 @@ usage_and_exit() {
 Usage: $reinstall_____ anolis      7|8|23
                        opencloudos 8|9|23
                        rocky       8|9
-                       redhat      8|9 --img='http://xxx.com/xxx.qcow2'
+                       redhat      8|9 --img="http://xxx.com/xxx.qcow2"
                        oracle      8|9
                        almalinux   8|9
                        centos      9|10
@@ -61,9 +62,10 @@ Usage: $reinstall_____ anolis      7|8|23
                        kali
                        arch
                        gentoo
-                       dd          --img='http://xxx.com/yyy.zzz' (raw image stores in raw/vhd/tar/gz/xz/zst)
-                       windows     --image-name='windows xxx yyy' --lang=xx-yy
-                       windows     --image-name='windows xxx yyy' --iso='http://xxx.com/xxx.iso'
+                       fnos
+                       dd          --img="http://xxx.com/yyy.zzz" (raw image stores in raw/vhd/tar/gz/xz/zst)
+                       windows     --image-name="windows xxx yyy" --lang=xx-yy
+                       windows     --image-name="windows xxx yyy" --iso="http://xxx.com/xxx.iso"
                        netboot.xyz
 
        Options:        [--ssh-port PORT]
@@ -124,9 +126,11 @@ curl() {
 }
 
 is_in_china() {
+    [ "$force_cn" = 1 ] && return 0
+
     if [ -z "$_loc" ]; then
-        # 部分地区 www.cloudflare.com 被墙
-        _loc=$(curl -L http://dash.cloudflare.com/cdn-cgi/trace | grep '^loc=' | cut -d= -f2)
+        # www.cloudflare.com/dash.cloudflare.com 国内访问的是美国服务器，而且部分地区被墙
+        _loc=$(curl -L http://www.visa.cn/cdn-cgi/trace | grep '^loc=' | cut -d= -f2)
         if [ -z "$_loc" ]; then
             error_and_exit "Can not get location."
         fi
@@ -1034,6 +1038,10 @@ setos() {
             [ "$releasever" -le 10 ]
         }
 
+        # 用此标记要是否 elts, 用于安装后修改 elts/etls-cn 源
+        # shellcheck disable=SC2034
+        is_debian_elts && elts=1 || elts=0
+
         case "$releasever" in
         9) codename=stretch ;;
         10) codename=buster ;;
@@ -1041,6 +1049,49 @@ setos() {
         12) codename=bookworm ;;
         esac
 
+        if ! is_use_cloud_image && is_debian_elts && is_in_china; then
+            warn "
+Due to the lack of Debian Freexian ELTS instaler mirrors in China, the installation time may be longer.
+Continue?
+
+由于没有 Debian Freexian ELTS 国内安装源，安装时间可能会比较长。
+继续安装?
+"
+            read -r -p '[y/N]: '
+            if ! [[ "$REPLY" = [Yy] ]]; then
+                exit
+            fi
+        fi
+
+        # udeb_mirror 安装时的源
+        # deb_mirror 安装后要修改成的源
+        if is_debian_elts; then
+            if is_in_china; then
+                # https://github.com/tuna/issues/issues/1999
+                # nju 也没同步
+                udeb_mirror=deb.freexian.com/extended-lts
+                deb_mirror=mirror.nju.edu.cn/debian-elts
+                initrd_mirror=mirror.nju.edu.cn/debian-archive/debian
+            else
+                # 按道理不应该用官方源，但找不到其他源
+                udeb_mirror=deb.freexian.com/extended-lts
+                deb_mirror=deb.freexian.com/extended-lts
+                initrd_mirror=archive.debian.org/debian
+            fi
+        else
+            if is_in_china; then
+                # ftp.cn.debian.org 不在国内还严重丢包
+                # https://www.itdog.cn/ping/ftp.cn.debian.org
+                mirror=mirror.nju.edu.cn/debian
+            else
+                mirror=deb.debian.org/debian # fastly
+            fi
+            udeb_mirror=$mirror
+            deb_mirror=$mirror
+            initrd_mirror=$mirror
+        fi
+
+        # 云镜像和 firmware 下载源
         if is_in_china; then
             cdimage_mirror=https://mirror.nju.edu.cn/debian-cdimage
         else
@@ -1056,10 +1107,6 @@ setos() {
 
         if is_use_cloud_image; then
             # cloud image
-            # debian --ci 用此标记要是否要换 elts 源
-            # shellcheck disable=SC2034
-            is_debian_elts && elts=1 || elts=0
-
             # https://salsa.debian.org/cloud-team/debian-cloud-images/-/tree/master/config_space/bookworm/files/etc/default/grub.d
             # cloud 包括各种奇怪的优化，例如不显示 grub 菜单
             # 因此使用 nocloud
@@ -1069,59 +1116,21 @@ setos() {
                 ci_type=nocloud
             fi
             eval ${step}_img=$cdimage_mirror/cloud/$codename/latest/debian-$releasever-$ci_type-$basearch_alt.qcow2
-            eval ${step}_kernel=linux-image$flavour-$basearch_alt
         else
             # 传统安装
-            if is_debian_elts; then
-                # https://github.com/tuna/issues/issues/1999
-                # nju 也没同步
-                if false && is_in_china; then
-                    hostname=mirrors.tuna.tsinghua.edu.cn
-                    hostname=mirror.nju.edu.cn
-                    directory=debian-elts
-                    initrd_mirror=mirrors.nju.edu.cn/debian-archive
-                else
-                    # 按道理不应该用官方源，但找不到其他源
-                    hostname=deb.freexian.com
-                    directory=extended-lts
-                    initrd_mirror=archive.debian.org
-                fi
-                if is_in_china; then
-                    warn "
-Due to the lack of Debian Freexian ELTS instaler mirrors in China, the installation time may be longer.
-Continue?
+            initrd_dir=dists/$codename/main/installer-$basearch_alt/current/images/netboot/debian-installer/$basearch_alt
 
-由于没有 Debian Freexian ELTS 国内安装源，安装时间可能会比较长。
-继续安装?
-"
-                    read -r -p '[y/N]: '
-                    if ! [[ "$REPLY" = [Yy] ]]; then
-                        exit
-                    fi
-                fi
-            else
-                if is_in_china; then
-                    # ftp.cn.debian.org 不在国内还严重丢包
-                    # https://www.itdog.cn/ping/ftp.cn.debian.org
-                    hostname=mirror.nju.edu.cn
-                else
-                    hostname=deb.debian.org # fastly
-                fi
-                directory=debian
-                initrd_mirror=$hostname
-            fi
-
-            initrd_dir=debian/dists/$codename/main/installer-$basearch_alt/current/images/netboot/debian-installer/$basearch_alt
-
+            eval ${step}_udeb_mirror=$udeb_mirror
             eval ${step}_vmlinuz=https://$initrd_mirror/$initrd_dir/linux
             eval ${step}_initrd=https://$initrd_mirror/$initrd_dir/initrd.gz
             eval ${step}_ks=$confhome/debian.cfg
             eval ${step}_firmware=$cdimage_mirror/unofficial/non-free/firmware/$codename/current/firmware.cpio.gz
-            eval ${step}_hostname=$hostname
-            eval ${step}_directory=$directory
             eval ${step}_codename=$codename
-            eval ${step}_kernel=linux-image$flavour-$basearch_alt
         fi
+
+        # 官方安装和云镜像都会用到的
+        eval ${step}_deb_mirror=$deb_mirror
+        eval ${step}_kernel=linux-image$flavour-$basearch_alt
     }
 
     setos_kali() {
@@ -1144,9 +1153,8 @@ Continue?
             eval ${step}_vmlinuz=$mirror/linux
             eval ${step}_initrd=$mirror/initrd.gz
             eval ${step}_ks=$confhome/debian.cfg
-            eval ${step}_hostname=$hostname
+            eval ${step}_udeb_mirror=$hostname/kali
             eval ${step}_codename=$codename
-            eval ${step}_directory=kali
             eval ${step}_kernel=linux-image$flavour-$basearch_alt
             # 缺少 firmware 下载
         fi
@@ -1287,20 +1295,21 @@ Continue?
             mirror=https://distfiles.gentoo.org # cdn77
         fi
 
-        if is_use_cloud_image; then
-            if [ "$basearch_alt" = arm64 ]; then
-                error_and_exit 'Not support arm64 for gentoo cloud image.'
-            fi
+        dir=releases/$basearch_alt/autobuilds
 
-            # openrc 镜像没有附带兼容 cloud-init 的网络管理器
-            eval ${step}_img=$mirror/experimental/$basearch_alt/openstack/gentoo-openstack-$basearch_alt-systemd-latest.qcow2
+        if is_use_cloud_image; then
+            # 使用 systemd 且没有 cloud-init
+            prefix=di-$basearch_alt-console
+            filename=$(curl -L $mirror/$dir/latest-$prefix.txt | grep '.qcow2' | awk '{print $1}' | grep .)
+            file=$mirror/$dir/$filename
+            test_url "$file" 'qemu'
+            eval ${step}_img=$file
         else
             prefix=stage3-$basearch_alt-systemd
-            dir=releases/$basearch_alt/autobuilds
-            file=$(curl -L $mirror/$dir/latest-$prefix.txt | grep '.tar.xz' | awk '{print $1}')
-            stage3=$mirror/$dir/$file
-            test_url $stage3 'tar.xz'
-            eval ${step}_img=$stage3
+            filename=$(curl -L $mirror/$dir/latest-$prefix.txt | grep '.tar.xz' | awk '{print $1}' | grep .)
+            file=$mirror/$dir/$filename
+            test_url "$file" 'tar.xz'
+            eval ${step}_img=$file
         fi
     }
 
@@ -1350,49 +1359,54 @@ Continue?
         # 注意 windows server 2008 r2 serverdatacenter 不用改
         image_name=${image_name/windows server 2008 server/windows longhorn server}
 
-        iso_filetype='iso raw'
-        iso_tested=false
+        if [[ "$iso" = magnet:* ]]; then
+            : # 不测试磁力链接
+        else
+            iso_filetype='iso raw'
+            iso_tested=false
 
-        # 获取 massgrave.dev 直链
-        if grep -Eiq '\.massgrave\.dev/.*\.(iso|img)' <<<"$iso"; then
-            # 如果已经是 iso 直链则跳过下面的 iso 测试
-            if test_url_grace "$iso" "$iso_filetype"; then
-                iso_tested=true
+            # 获取 massgrave.dev 直链
+            if grep -Eiq '\.massgrave\.dev/.*\.(iso|img)' <<<"$iso"; then
+                # 如果已经是 iso 直链则跳过下面的 iso 测试
+                if test_url_grace "$iso" "$iso_filetype"; then
+                    iso_tested=true
+                else
+                    msg="Could not find direct link for $iso"
+                    if ! iso=$(grep -oE 'https?.*\.iso[^"]*' $tmp/img-test | sed 's/&amp;/\&/g' | grep .); then
+                        error_and_exit "$msg"
+                    fi
+                fi
+            fi
+
+            # 测试是否是 iso
+            if ! $iso_tested; then
+                test_url "$iso" "$iso_filetype"
+            fi
+
+            # 判断 iso 架构是否兼容
+            # https://gitlab.com/libosinfo/osinfo-db/-/tree/main/data/os/microsoft.com?ref_type=heads
+            # uupdump linux 下合成的标签是 ARM64，windows下合成的标签是 A64
+            if file -b "$tmp/img-test" | grep -Eq '_(A64|ARM64)'; then
+                iso_arch=arm64
             else
-                msg="Could not find direct link for $iso"
-                if ! iso=$(grep -oE 'https?.*\.iso[^"]*' $tmp/img-test | sed 's/&amp;/\&/g' | grep .); then
-                    error_and_exit "$msg"
+                iso_arch=x86_or_x64
+            fi
+
+            if ! {
+                { [ "$basearch" = x86_64 ] && [ "$iso_arch" = x86_or_x64 ]; } ||
+                    { [ "$basearch" = aarch64 ] && [ "$iso_arch" = arm64 ]; }
+            }; then
+                warn "
+The current machine is $basearch, but it seems the ISO is for $iso_arch. Continue?
+当前机器是 $basearch，但 ISO 似乎是 $iso_arch。继续安装?"
+                read -r -p '[y/N]: '
+                if ! [[ "$REPLY" = [Yy] ]]; then
+                    exit
                 fi
             fi
         fi
 
-        # 测试是否是 iso
-        if ! $iso_tested; then
-            test_url "$iso" "$iso_filetype"
-        fi
-
         [ -n "$boot_wim" ] && test_url "$boot_wim" 'wim'
-
-        # 判断 iso 架构是否兼容
-        # https://gitlab.com/libosinfo/osinfo-db/-/tree/main/data/os/microsoft.com?ref_type=heads
-        if file -b "$tmp/img-test" | grep -q '_A64'; then
-            iso_arch=arm64
-        else
-            iso_arch=x86_or_x64
-        fi
-
-        if ! {
-            { [ "$basearch" = x86_64 ] && [ "$iso_arch" = x86_or_x64 ]; } ||
-                { [ "$basearch" = aarch64 ] && [ "$iso_arch" = arm64 ]; }
-        }; then
-            warn "
-The current machine is $basearch, but it seems the ISO is for $iso_arch. Continue?
-当前机器是 $basearch，但 ISO 似乎是 $iso_arch。继续安装?"
-            read -r -p '[y/N]: '
-            if ! [[ "$REPLY" = [Yy] ]]; then
-                exit
-            fi
-        fi
 
         eval "${step}_iso='$iso'"
         eval "${step}_boot_wim='$boot_wim'"
@@ -1424,7 +1438,7 @@ The current machine is $basearch, but it seems the ISO is for $iso_arch. Continu
             else
                 echo 'DD: Image is not EFI.'
                 warn '
-The current machine uses EFI boot, but the DD image is not an EFI image.
+The current machine uses EFI boot, but the DD image seems not an EFI image.
 Continue with DD?
 当前机器使用 EFI 引导，但 DD 镜像可能不是 EFI 镜像。
 继续 DD?'
@@ -1439,6 +1453,30 @@ Continue with DD?
         eval "${step}_img='$img'"
         eval "${step}_img_type='$img_type'"
         eval "${step}_img_type_warp='$img_type_warp'"
+    }
+
+    setos_fnos() {
+        if [ "$basearch" = aarch64 ]; then
+            error_and_exit "FNOS not supports ARM."
+        fi
+
+        # 系统盘大小
+        min=8
+        default=8
+        while true; do
+            IFS= read -r -p "Type System Partition Size in GB. Minimal $min GB. [$default]: " input
+            input=${input:-$default}
+            if ! { is_digit "$input" && [ "$input" -ge "$min" ]; }; then
+                error "Invalid Size. Please Try again."
+            else
+                eval "${step}_fnos_part_size=${input}G"
+                break
+            fi
+        done
+
+        iso=$(curl -L https://fnnas.com | grep -o 'https://[^"]*\.iso' | head -1)
+        test_url "$iso" 'iso'
+        eval "${step}_iso='$iso'"
     }
 
     setos_centos_almalinux_rocky_fedora() {
@@ -1681,6 +1719,7 @@ verify_os_name() {
         'kali' \
         'arch' \
         'gentoo' \
+        'fnos' \
         'windows' \
         'dd' \
         'netboot.xyz'; do
@@ -1939,7 +1978,7 @@ check_ram() {
         alpine | debian | kali | dd) echo 256 ;;
         arch | gentoo | nixos | windows) echo 512 ;;
         redhat | centos | almalinux | rocky | fedora | oracle | ubuntu | anolis | opencloudos | openeuler) echo 1024 ;;
-        opensuse) echo -1 ;; # 没有安装模式
+        opensuse | fnos) echo -1 ;; # 没有安装模式
         esac
     )
 
@@ -2743,7 +2782,8 @@ build_extra_cmdline() {
     # 会将 extra.xxx=yyy 写入新系统的 /etc/modprobe.d/local.conf
     # https://answers.launchpad.net/ubuntu/+question/249456
     # https://salsa.debian.org/installer-team/rootskel/-/blob/master/src/lib/debian-installer-startup.d/S02module-params?ref_type=heads
-    for key in confhome hold force force_old_windows_setup cloud_image main_disk elts \
+    for key in confhome hold force force_cn force_old_windows_setup cloud_image main_disk \
+        elts deb_mirror \
         ssh_port rdp_port web_port allow_ping; do
         value=${!key}
         if [ -n "$value" ]; then
@@ -2792,8 +2832,8 @@ build_nextos_cmdline() {
     elif is_distro_like_debian $nextos_distro; then
         nextos_cmdline="lowmem/low=1 auto=true priority=critical"
         nextos_cmdline+=" url=$nextos_ks"
-        nextos_cmdline+=" mirror/http/hostname=$nextos_hostname"
-        nextos_cmdline+=" mirror/http/directory=/$nextos_directory"
+        nextos_cmdline+=" mirror/http/hostname=${nextos_udeb_mirror%/*}"
+        nextos_cmdline+=" mirror/http/directory=/${nextos_udeb_mirror##*/}"
         nextos_cmdline+=" base-installer/kernel/image=$nextos_kernel"
         # elts 的 debian 不能用 security 源，否则安装过程会提示无法访问
         if [ "$nextos_distro" = debian ] && is_debian_elts; then
@@ -2978,12 +3018,12 @@ EOF
         udeb_list=$tmp/udeb_list
         if ! [ -f $udeb_list ]; then
             # shellcheck disable=SC2154
-            curl -L http://$nextos_hostname/$nextos_directory/dists/$nextos_codename/main/debian-installer/binary-$basearch_alt/Packages.gz |
+            curl -L http://$nextos_udeb_mirror/dists/$nextos_codename/main/debian-installer/binary-$basearch_alt/Packages.gz |
                 zcat | grep 'Filename:' | awk '{print $2}' >$udeb_list
         fi
 
         # 下载 udeb
-        curl -Lo $tmp/tmp.udeb http://$nextos_hostname/$nextos_directory/"$(grep /$package $udeb_list)"
+        curl -Lo $tmp/tmp.udeb http://$nextos_udeb_mirror/"$(grep /$package $udeb_list)"
 
         if false; then
             # 使用 dpkg
@@ -3105,8 +3145,10 @@ EOF
     # hack 3
     # 修改 trans.sh
     # 1. 直接调用 create_ifupdown_config
+    # shellcheck disable=SC2154
     insert_into_file $initrd_dir/trans.sh after '^: main' <<EOF
         distro=$nextos_distro
+        releasever=$nextos_releasever
         create_ifupdown_config /etc/network/interfaces
         exit
 EOF
@@ -3319,8 +3361,13 @@ EOF
         chmod a+x \$sysroot/etc/local.d/trans.start
         ln -s /etc/init.d/local \$sysroot/etc/runlevels/default/
 
-        # 配置文件夹
-        cp -r  /configs \$sysroot/configs
+        # 配置 + 自定义驱动
+        for dir in /configs /custom_drivers; do
+            if [ -d \$dir ]; then
+                cp -r \$dir \$sysroot/
+                rm -rf \$dir
+            fi
+        done
 EOF
 
     # 判断云镜像 debain 能否用云内核
@@ -3378,6 +3425,19 @@ This script is outdated, please download reinstall.sh again.
         mod_initrd_$nextos_distro
     fi
 
+    # 添加自定义 windows 驱动
+    if [ "$distro" = windows ]; then
+        mkdir -p $initrd_dir/custom_drivers
+        i=0
+        while IFS= read -r dir; do
+            if [ -d "$dir" ]; then
+                ((i += 1))
+                info "add custom driver: $dir"
+                cp -r "$dir" "$initrd_dir/custom_drivers/$i"
+            fi
+        done < <(echo "$custom_driver_dirs")
+    fi
+
     # alpine live 不精简 initrd
     # 因为不知道用户想干什么，可能会用到精简的文件
     if is_virt && ! is_alpine_live; then
@@ -3395,6 +3455,8 @@ This script is outdated, please download reinstall.sh again.
 }
 
 remove_useless_initrd_files() {
+    info "slim initrd"
+
     # 显示精简前的大小
     du -sh .
 
@@ -3408,7 +3470,20 @@ remove_useless_initrd_files() {
         cd lib/modules/*/kernel/drivers/net/ethernet/
         for item in *; do
             case "$item" in
-            intel | amazon | google) ;;
+            # 甲骨文 arm 用自定义镜像支持设为 mlx5 vf 网卡，且不是 azure 那样显示两个网卡
+            amazon | google | mellanox) ;;
+            intel)
+                (
+                    cd "$item"
+                    for sub_item in *; do
+                        case "$sub_item" in
+                        # 有 e100.ko e1000文件夹 e1000e文件夹
+                        e100* | lib* | *vf) ;;
+                        *) rm -rf $sub_item ;;
+                        esac
+                    done
+                )
+                ;;
             *) rm -rf $item ;;
             esac
         done
@@ -3485,7 +3560,8 @@ else
 fi
 
 long_opts=
-for o in ci installer debug minimal allow-ping \
+for o in ci installer debug minimal allow-ping force-cn \
+    add-driver-dir: \
     hold: sleep: \
     iso: \
     image-name: \
@@ -3539,6 +3615,11 @@ while true; do
         allow_ping=1
         shift
         ;;
+    --force-cn)
+        # 仅为了方便测试
+        force_cn=1
+        shift
+        ;;
     --hold | --sleep)
         if ! { [ "$2" = 1 ] || [ "$2" = 2 ]; }; then
             error_and_exit "Invalid $1 value: $2"
@@ -3571,6 +3652,28 @@ while true; do
     --web-port | --http-port)
         is_port_valid $2 || error_and_exit "Invalid $1 value: $2"
         web_port=$2
+        shift 2
+        ;;
+    --add-driver-dir)
+        # 指定 dir 而不是指定 inf
+        # 防止用户将 inf 放在 / 而复制整个 /
+
+        # 路径转换
+        if is_in_windows; then
+            # 输入的路径是 / 开头也没问题
+            dir="$(cygpath -u "$2")"
+        else
+            dir=$2
+        fi
+
+        # 防止重复添加
+        if ! grep -Fqx "$dir" <<<"$custom_driver_dirs"; then
+            # shellcheck disable=SC2010
+            { [ -d "$dir" ] && ls "$dir" | grep -Eiq '\.inf$'; } || error_and_exit "Invalid Driver Directory: $2"
+            # 一行一个驱动文件夹
+            custom_driver_dirs+="$dir
+"
+        fi
         shift 2
         ;;
     --force-old-windows-setup)
@@ -3624,15 +3727,14 @@ fi
 
 # 密码
 if ! is_netboot_xyz && [ -z "$password" ]; then
-    if is_use_dd; then
+    if is_use_dd || [ "$distro" = fnos ]; then
         echo "
-This password is only used for SSH access to view logs during the DD process.
+This password is only used for SSH access to view logs during the installation.
 Password of the image will NOT modify.
 
-密码仅用于 DD 过程中通过 SSH 查看日志。
+密码仅用于安装过程中通过 SSH 查看日志。
 镜像的密码不会被修改。
 "
-
     fi
     prompt_password
 fi
@@ -4063,7 +4165,7 @@ fi
 info 'info'
 echo "$distro $releasever"
 
-if ! { is_netboot_xyz || is_use_dd; }; then
+if ! { is_netboot_xyz || is_use_dd || [ "$distro" = fnos ]; }; then
     if [ "$distro" = windows ]; then
         username="administrator"
     else
@@ -4079,6 +4181,9 @@ elif is_alpine_live; then
     echo 'Reboot to start Alpine Live OS.'
 elif is_use_dd; then
     echo 'Reboot to start DD.'
+elif [ "$distro" = fnos ]; then
+    echo "Reboot to start the installation."
+    echo "After install, you need to config the system on http://SERVER_IP:5666 as soon as possible."
 else
     echo "Reboot to start the installation."
 fi

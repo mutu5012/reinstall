@@ -3,8 +3,11 @@ mode con cp select=437 >nul
 setlocal EnableDelayedExpansion
 
 set confhome=https://raw.githubusercontent.com/bin456789/reinstall/main
-set confhome_cn=https://jihulab.com/bin456789/reinstall/-/raw/main
+set confhome_cn=https://gitlab.com/bin456789/reinstall/-/raw/main
 rem set confhome_cn=https://www.ghproxy.cc/https://raw.githubusercontent.com/bin456789/reinstall/main
+
+set pkgs=curl,cpio,p7zip,ipcalc,dos2unix,jq,xz,gzip,zstd,openssl,bind-utils,libiconv,binutils
+set cmds=curl,cpio,p7zip,ipcalc,dos2unix,jq,xz,gzip,zstd,openssl,nslookup,iconv,ar
 
 rem 65001 代码页会乱码
 
@@ -33,8 +36,8 @@ if not exist %tmp% (
 
 rem 检查是否国内
 if not exist geoip (
-    rem 部分地区 www.cloudflare.com 被墙
-    call :download http://dash.cloudflare.com/cdn-cgi/trace %~dp0geoip || goto :download_failed
+    rem www.cloudflare.com/dash.cloudflare.com 国内访问的是美国服务器，而且部分地区被墙
+    call :download http://www.visa.cn/cdn-cgi/trace %~dp0geoip || goto :download_failed
 )
 findstr /c:"loc=CN" geoip >nul
 if not errorlevel 1 (
@@ -54,10 +57,7 @@ if not errorlevel 1 (
     set mirror=http://mirrors.kernel.org
 )
 
-rem pkgs 改动了才重新运行 Cygwin 安装程序
-set pkgs=curl,cpio,p7zip,bind-utils,ipcalc,dos2unix,binutils,jq,xz,gzip,zstd,openssl,libiconv
-set tags=%tmp%\cygwin-installed-%pkgs%
-if not exist "%tags%" (
+call :check_cygwin_installed || (
     rem win10 arm 支持运行 x86 软件
     rem win11 arm 支持运行 x86 和 x86_64 软件
     rem wmic os get osarchitecture 显示中文
@@ -122,14 +122,15 @@ if not exist "%tags%" (
         --only-site ^
         --site !site! ^
         --root %SystemDrive%\cygwin ^
-        --local-package-dir %tmp%\cygwin-local-package-dir ^
-        --packages %pkgs% ^
-        && type nul >"%tags%"
+        --local-package-dir %~dp0cygwin-local-package-dir ^
+        --packages %pkgs%
 
-        if errorlevel 1 (
-            echo "Failed to install Cygwin."
-            exit /b 1
-        )
+    rem 检查 Cygwin 是否成功安装
+    if errorlevel 1 (
+        goto :install_cygwin_failed
+    ) else (
+        call :check_cygwin_installed || goto :install_cygwin_failed
+    )
 )
 
 rem 在c盘根目录下执行 cygpath -ua . 会得到 /cygdrive/c，因此末尾要有 /
@@ -141,18 +142,21 @@ if not exist reinstall.sh (
     call :chmod a+x %thisdir%reinstall.sh
 )
 
+rem %* 无法处理 --iso https://x.com/?yyy=123
 rem 为每个参数添加引号，使参数正确传递到 bash
-for %%a in (%*) do (
-    set "param=!param! "%%~a""
-)
+rem for %%a in (%*) do (
+rem     set "param=!param! "%%~a""
+rem )
 
-rem 方法1
+rem 转成 unix 格式，避免用户用 windows 记事本编辑后换行符不对
 %SystemDrive%\cygwin\bin\dos2unix -q '%thisdir%reinstall.sh'
-%SystemDrive%\cygwin\bin\bash -l -c '%thisdir%reinstall.sh !param!'
 
-rem 方法2
-rem %SystemDrive%\cygwin\bin\bash reinstall.sh %*
-rem 再在 reinstall.sh 里运行 source /etc/profile
+rem 用 bash 运行
+rem %SystemDrive%\cygwin\bin\bash -l %thisdir%reinstall.sh %* 运行后会清屏
+rem 因此不能用 -l
+rem 这就需要在 reinstall.sh 里运行 source /etc/profile
+rem 或者添加 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH
+%SystemDrive%\cygwin\bin\bash %thisdir%reinstall.sh %*
 exit /b
 
 
@@ -189,3 +193,17 @@ exit /b
 :download_failed
 echo Download failed.
 exit /b 1
+
+:install_cygwin_failed
+echo Failed to install Cygwin.
+exit /b 1
+
+:check_cygwin_installed
+set "cmds_space=%cmds:,= %"
+for %%c in (%cmds_space%) do (
+    if not exist "%SystemDrive%\cygwin\bin\%%c" if not exist "%SystemDrive%\cygwin\bin\%%c.exe" (
+        echo %%c not found.
+        exit /b 1
+    )
+)
+exit /b 0
