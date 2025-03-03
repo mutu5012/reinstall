@@ -62,6 +62,7 @@ Usage: $reinstall_____ anolis      7|8|23
                        kali
                        arch
                        gentoo
+                       aosc
                        fnos
                        dd          --img="http://xxx.com/yyy.zzz" (raw image stores in raw/vhd/tar/gz/xz/zst)
                        windows     --image-name="windows xxx yyy" --lang=xx-yy
@@ -80,8 +81,15 @@ EOF
 }
 
 info() {
-    upper=$(to_upper <<<"$@")
-    echo_color_text '\e[32m' "***** $upper *****" >&2
+    local msg
+    if [ "$1" = false ]; then
+        shift
+        msg=$*
+    else
+        msg=$(to_upper <<<"$@")
+    fi
+
+    echo_color_text '\e[32m' "***** $msg *****" >&2
 }
 
 warn() {
@@ -90,7 +98,7 @@ warn() {
 
 error() {
     echo_color_text '\e[31m' "***** ERROR *****" >&2
-    echo_color_text '\e[31m' "Error: $*" >&2
+    echo_color_text '\e[31m' "$*" >&2
 }
 
 echo_color_text() {
@@ -125,11 +133,24 @@ curl() {
     done
 }
 
+mask2cidr() {
+    local x=${1##*255.}
+    set -- 0^^^128^192^224^240^248^252^254^ $(((${#1} - ${#x}) * 2)) ${x%%.*}
+    x=${1%%"$3"*}
+    echo $(($2 + (${#x} / 4)))
+}
+
 is_in_china() {
     [ "$force_cn" = 1 ] && return 0
 
     if [ -z "$_loc" ]; then
         # www.cloudflare.com/dash.cloudflare.com 国内访问的是美国服务器，而且部分地区被墙
+        # 备用 www.bose.cn
+        # 备用 www.qualcomm.cn
+        # 备用 www.prologis.cn
+        # 备用 www.garmin.com.cn
+        # 备用 www.autodesk.com.cn
+        # 备用 www.keysight.com.cn
         _loc=$(curl -L http://www.visa.cn/cdn-cgi/trace | grep '^loc=' | cut -d= -f2)
         if [ -z "$_loc" ]; then
             error_and_exit "Can not get location."
@@ -593,6 +614,12 @@ is_virt() {
         echo "VM: $_is_virt"
     fi
     $_is_virt
+}
+
+is_absolute_path() {
+    # 检查路径是否以/开头
+    # 注意语法和 ash 不同
+    [[ "$1" = /* ]]
 }
 
 assert_cpu_supports_x86_64_v3() {
@@ -1474,9 +1501,26 @@ Continue with DD?
             fi
         done
 
-        iso=$(curl -L https://fnnas.com | grep -o 'https://[^"]*\.iso' | head -1)
-        test_url "$iso" 'iso'
+        iso=$(curl -L https://fnnas.com/ | grep -o 'https://[^"]*\.iso' | head -1)
+        # debian 9 下 iso 会被识别为 raw
+        test_url "$iso" 'iso raw'
         eval "${step}_iso='$iso'"
+    }
+
+    setos_aosc() {
+        if is_in_china; then
+            mirror=https://mirror.nju.edu.cn/anthon/aosc-os
+        else
+            # 服务器在香港
+            mirror=https://releases.aosc.io
+        fi
+
+        dir=os-$basearch_alt/base
+        file=$(curl -L $mirror/$dir/ | grep -oP 'aosc-os_base_.*?\.tar.xz' |
+            sort -uV | tail -1 | grep .)
+        img=$mirror/$dir/$file
+        test_url $img 'tar.xz'
+        eval ${step}_img=$img
     }
 
     setos_centos_almalinux_rocky_fedora() {
@@ -1719,6 +1763,7 @@ verify_os_name() {
         'kali' \
         'arch' \
         'gentoo' \
+        'aosc' \
         'fnos' \
         'windows' \
         'dd' \
@@ -1976,7 +2021,7 @@ check_ram() {
         case "$distro" in
         netboot.xyz) echo 0 ;;
         alpine | debian | kali | dd) echo 256 ;;
-        arch | gentoo | nixos | windows) echo 512 ;;
+        arch | gentoo | aosc | nixos | windows) echo 512 ;;
         redhat | centos | almalinux | rocky | fedora | oracle | ubuntu | anolis | opencloudos | openeuler) echo 1024 ;;
         opensuse | fnos) echo -1 ;; # 没有安装模式
         esac
@@ -2119,7 +2164,13 @@ del_empty_lines() {
     sed '/^[[:space:]]*$/d'
 }
 
+trim() {
+    # sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//'
+    sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
 prompt_password() {
+    info "prompt password"
     while true; do
         IFS= read -r -p "Password [$DEFAULT_PASSWORD]: " password
         IFS= read -r -p "Retype password [$DEFAULT_PASSWORD]: " password_confirm
@@ -2362,7 +2413,9 @@ collect_netconf() {
                         ip=${ips[i]}
                         subnet=${subnets[i]}
                         if [[ "$ip" = *.* ]]; then
-                            cidr=$(ipcalc -b "$ip/$subnet" | grep Netmask: | awk '{print $NF}')
+                            # ipcalc 依赖 perl，会使 cygwin 增加 ~50M
+                            # cidr=$(ipcalc -b "$ip/$subnet" | grep Netmask: | awk '{print $NF}')
+                            cidr=$(mask2cidr "$subnet")
                             ipv4_addr="$ip/$cidr"
                             ipv4_gateway="$gateway"
                             ipv4_mac="$mac_addr"
@@ -3159,11 +3212,13 @@ EOF
     # 6. debian 11 initrd 无法识别 set -E
     # 7. debian 11 initrd 无法识别 trap ERR
     # 8. debian 9 initrd 无法识别 ${string//find/replace}
+    # 9. debian 12 initrd 无法识别 . <(
     # 删除或注释，可能会导致空方法而报错，因此改为替换成'\n: #'
     replace='\n: #'
     sed -Ei \
         -e "s/> >/$replace/" \
         -e "s/< </$replace/" \
+        -e "s/\. <\(/$replace/" \
         -e "s/^[[:space:]]*apk[[:space:]]/$replace/" \
         -e "s/^[[:space:]]*trap[[:space:]]/$replace/" \
         -e "s/\\$\{.*\/\/.*\/.*\}/$replace/" \
@@ -3426,16 +3481,12 @@ This script is outdated, please download reinstall.sh again.
     fi
 
     # 添加自定义 windows 驱动
-    if [ "$distro" = windows ]; then
-        mkdir -p $initrd_dir/custom_drivers
-        i=0
-        while IFS= read -r dir; do
-            if [ -d "$dir" ]; then
-                ((i += 1))
-                info "add custom driver: $dir"
-                cp -r "$dir" "$initrd_dir/custom_drivers/$i"
-            fi
-        done < <(echo "$custom_driver_dirs")
+    if [ "$distro" = windows ] && [ -n "$custom_infs" ]; then
+        # shellcheck disable=SC1090
+        . <(curl -L $confhome/windows-driver-utils.sh)
+        echo "$custom_infs" | while read -r inf; do
+            parse_inf_and_cp_driever "$inf" "$initrd_dir/custom_drivers" "$basearch_alt" true
+        done
     fi
 
     # alpine live 不精简 initrd
@@ -3561,7 +3612,7 @@ fi
 
 long_opts=
 for o in ci installer debug minimal allow-ping force-cn \
-    add-driver-dir: \
+    add-driver: \
     hold: sleep: \
     iso: \
     image-name: \
@@ -3654,26 +3705,45 @@ while true; do
         web_port=$2
         shift 2
         ;;
-    --add-driver-dir)
-        # 指定 dir 而不是指定 inf
-        # 防止用户将 inf 放在 / 而复制整个 /
-
+    --add-driver)
         # 路径转换
         if is_in_windows; then
             # 输入的路径是 / 开头也没问题
-            dir="$(cygpath -u "$2")"
+            inf_or_dir="$(cygpath -u "$2")"
         else
-            dir=$2
+            inf_or_dir=$2
         fi
 
-        # 防止重复添加
-        if ! grep -Fqx "$dir" <<<"$custom_driver_dirs"; then
-            # shellcheck disable=SC2010
-            { [ -d "$dir" ] && ls "$dir" | grep -Eiq '\.inf$'; } || error_and_exit "Invalid Driver Directory: $2"
-            # 一行一个驱动文件夹
-            custom_driver_dirs+="$dir
-"
+        # alpine busybox 不支持 readlink -m
+        # readlink -m /asfsafasfsaf/fasf
+        # 因此需要先判断路径是否存在
+
+        if ! [ -d "$inf_or_dir" ] &&
+            ! { [ -f "$inf_or_dir" ] && [[ "$inf_or_dir" =~ \.[iI][nN][fF]$ ]]; }; then
+            error_and_exit "Not a inf or dir: $2"
         fi
+
+        # 转为绝对路径
+        inf_or_dir=$(readlink -f "$inf_or_dir")
+
+        info "finding inf in $inf_or_dir"
+        # find /tmp -type f -iname '*.inf' 只要 /tmp 存在就会返回 0
+        if infs=$(find "$inf_or_dir" -type f -iname '*.inf' | grep .); then
+            while IFS= read -r inf; do
+                # 防止重复添加
+                if ! grep -Fqx "$inf" <<<"$custom_infs"; then
+                    echo "inf found: $inf"
+                    # 一行一个 inf
+                    if [ -n "$custom_infs" ]; then
+                        custom_infs+=$'\n'
+                    fi
+                    custom_infs+=$inf
+                fi
+            done <<<"$infs"
+        else
+            error_and_exit "Can't find inf files in $2"
+        fi
+
         shift 2
         ;;
     --force-old-windows-setup)
@@ -3727,7 +3797,7 @@ fi
 
 # 密码
 if ! is_netboot_xyz && [ -z "$password" ]; then
-    if is_use_dd || [ "$distro" = fnos ]; then
+    if is_use_dd; then
         echo "
 This password is only used for SSH access to view logs during the installation.
 Password of the image will NOT modify.
@@ -3749,7 +3819,7 @@ mkdir_clear "$tmp"
 # 强制忽略/强制添加 --ci 参数
 # debian 不强制忽略 ci 留作测试
 case "$distro" in
-dd | windows | netboot.xyz | kali | alpine | arch | gentoo | nixos)
+dd | windows | netboot.xyz | kali | alpine | arch | gentoo | aosc | nixos | fnos)
     if is_use_cloud_image; then
         echo "ignored --ci"
         unset cloud_image
@@ -4182,8 +4252,15 @@ elif is_alpine_live; then
 elif is_use_dd; then
     echo 'Reboot to start DD.'
 elif [ "$distro" = fnos ]; then
+    echo "Special note for FNOS:"
     echo "Reboot to start the installation."
-    echo "After install, you need to config the system on http://SERVER_IP:5666 as soon as possible."
+    echo "SSH login is disabled when installation completed."
+    echo "You need to config the account and password on http://SERVER_IP:5666 as soon as possible."
+    echo
+    echo "飞牛 OS 注意事项："
+    echo "重启后开始安装。"
+    echo "安装完成后不支持 SSH 登录。"
+    echo "你需要尽快在 http://SERVER_IP:5666 配置账号密码。"
 else
     echo "Reboot to start the installation."
 fi
