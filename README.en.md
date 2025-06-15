@@ -1,10 +1,10 @@
-<!-- markdownlint-disable MD028 MD033 MD045 MD053 -->
+<!-- markdownlint-disable MD028 MD033 MD045 -->
 
 # reinstall
 
 [![Codacy](https://img.shields.io/codacy/grade/dc679a17751448628fe6d8ac35e26eed?logo=Codacy&label=Codacy&style=flat-square)](https://app.codacy.com/gh/bin456789/reinstall/dashboard)
 [![CodeFactor](https://img.shields.io/codefactor/grade/github/bin456789/reinstall?logo=CodeFactor&logoColor=white&label=CodeFactor&style=flat-square)](https://www.codefactor.io/repository/github/bin456789/reinstall)
-[![Lines of Code](https://tokei.rs/b1/github/bin456789/reinstall?category=code&label=Lines%20of%20Code&style=flat-square)](https://github.com/XAMPPRocky/tokei)
+[![Lines of Code](https://tokei.rs/b1/github/bin456789/reinstall?category=code&label=Lines%20of%20Code&style=flat-square)](https://github.com/XAMPPRocky/tokei_rs)
 [![Telegram Group](https://img.shields.io/badge/Telegram-2CA5E0?style=flat-square&logo=telegram&logoColor=white)](https://t.me/reinstall_os)
 [![Github Sponsors](https://img.shields.io/badge/sponsor-30363D?style=flat-square&logo=GitHub-Sponsors&logoColor=#EA4AAA)](https://github.com/sponsors/bin456789)
 
@@ -15,7 +15,7 @@ One-Click Script to Reinstall System [中文](README.md)
 ## Highlights
 
 - One-click Linux installation: Supports 19 common distributions.
-- One-click Windows installation: Uses the official ISO for installation instead of custom images. The script can automatically ~~retrieves the ISO link~~ and installs common drivers like `Virtio`.
+- One-click Windows installation: Uses the official ISO for installation instead of custom images. The script can automatically retrieves the ISO link and installs common drivers like `Virtio`.
 - Supports installation in any direction, i.e., `Linux to Linux`, `Linux to Windows`, `Windows to Windows`, `Windows to Linux`
 - No need to input IP parameters; automatically recognizes dynamic and static IPs, supports `/32`, `/128`, `gateway outside subnet`, `IPv6 only`, `dual NIC`
 - Specially optimized for low-spec servers, requires less memory than the official netboot
@@ -31,18 +31,18 @@ The system requirements for the target system are as follows:
 
 | System                                                                                                                                                                                                                                                                                                                                                                 | Version                               | Memory    | Disk             |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | --------- | ---------------- |
-| <img width="16" height="16" src="https://www.alpinelinux.org/alpine-logo.ico" /> Alpine                                                                                                                                                                                                                                                                                | 3.18, 3.19, 3.20, 3.21                | 256 MB    | 1 GB             |
+| <img width="16" height="16" src="https://www.alpinelinux.org/alpine-logo.ico" /> Alpine                                                                                                                                                                                                                                                                                | 3.19, 3.20, 3.21, 3.22                | 256 MB    | 1 GB             |
 | <img width="16" height="16" src="https://www.debian.org/favicon.ico" /> Debian                                                                                                                                                                                                                                                                                         | 9, 10, 11, 12                         | 256 MB    | 1 ~ 1.5 GB ^     |
 | <img width="16" height="16" src="https://github.com/bin456789/reinstall/assets/7548515/f74b3d5b-085f-4df3-bcc9-8a9bd80bb16d" /> Kali                                                                                                                                                                                                                                   | Rolling                               | 256 MB    | 1 ~ 1.5 GB ^     |
-| <img width="16" height="16" src="https://canonical-subiquity.readthedocs-hosted.com/en/latest/_static/favicon.png" /> Ubuntu                                                                                                                                                                                                                                           | 16.04 LTS - 24.04 LTS, 24.10          | 512 MB \* | 2 GB             |
+| <img width="16" height="16" src="https://documentation.ubuntu.com/server/_static/favicon.png" /> Ubuntu                                                                                                                                                                                                                                                                | 16.04 LTS - 24.04 LTS, 25.04          | 512 MB \* | 2 GB             |
 | <img width="16" height="16" src="https://img.alicdn.com/imgextra/i1/O1CN01oJnJZg1yK4RzI4Rx2_!!6000000006559-2-tps-118-118.png" /> Anolis                                                                                                                                                                                                                               | 7, 8, 23                              | 512 MB \* | 5 GB             |
-| <img width="16" height="16" src="https://www.redhat.com/favicon.ico" /> RHEL &nbsp;<img width="16" height="16" src="https://almalinux.org/fav/favicon.ico" /> AlmaLinux &nbsp;<img width="16" height="16" src="https://rockylinux.org/favicon.png" /> Rocky &nbsp;<img width="16" height="16" src="https://www.oracle.com/asset/web/favicons/favicon-32.png" /> Oracle | 8, 9                                  | 512 MB \* | 5 GB             |
+| <img width="16" height="16" src="https://www.redhat.com/favicon.ico" /> RHEL &nbsp;<img width="16" height="16" src="https://almalinux.org/fav/favicon.ico" /> AlmaLinux &nbsp;<img width="16" height="16" src="https://rockylinux.org/favicon.png" /> Rocky &nbsp;<img width="16" height="16" src="https://www.oracle.com/asset/web/favicons/favicon-32.png" /> Oracle | 8, 9, 10 (if released)                | 512 MB \* | 5 GB             |
 | <img width="16" height="16" src="https://opencloudos.org/qq.ico" /> OpenCloudOS                                                                                                                                                                                                                                                                                        | 8, 9, Stream 23                       | 512 MB \* | 5 GB             |
-| <img width="16" height="16" src="https://www.centos.org/assets/icons/favicon.svg" /> CentOS                                                                                                                                                                                                                                                                            | 9, 10                                 | 512 MB \* | 5 GB             |
-| <img width="16" height="16" src="https://fedoraproject.org/favicon.ico" /> Fedora                                                                                                                                                                                                                                                                                      | 40, 41                                | 512 MB \* | 5 GB             |
-| <img width="16" height="16" src="https://www.openeuler.org/favicon.ico" /> openEuler                                                                                                                                                                                                                                                                                   | 20.03 LTS - 24.03 LTS, 24.09          | 512 MB \* | 5 GB             |
-| <img width="16" height="16" src="https://static.opensuse.org/favicon.ico" /> openSUSE                                                                                                                                                                                                                                                                                  | 15.6, Tumbleweed (Rolling)            | 512 MB \* | 5 GB             |
-| <img width="16" height="16" src="https://github.com/user-attachments/assets/99a542b6-6482-4086-addf-f192c06fef73" /> NixOS                                                                                                                                                                                                                                             | 24.11                                 | 512 MB    | 5 GB             |
+| <img width="16" height="16" src="https://www.centos.org/assets/icons/favicon.svg" /> CentOS Stream                                                                                                                                                                                                                                                                     | 9, 10                                 | 512 MB \* | 5 GB             |
+| <img width="16" height="16" src="https://fedoraproject.org/favicon.ico" /> Fedora                                                                                                                                                                                                                                                                                      | 41, 42                                | 512 MB \* | 5 GB             |
+| <img width="16" height="16" src="https://www.openeuler.org/favicon.ico" /> openEuler                                                                                                                                                                                                                                                                                   | 20.03 LTS - 24.03 LTS, 25.03          | 512 MB \* | 5 GB             |
+| <img width="16" height="16" src="https://static.opensuse.org/favicon.ico" /> openSUSE                                                                                                                                                                                                                                                                                  | Leap 15.6, Tumbleweed (Rolling)       | 512 MB \* | 5 GB             |
+| <img width="16" height="16" src="https://nixos.org/favicon.svg" /> NixOS                                                                                                                                                                                                                                                                                               | 25.05                                 | 512 MB    | 5 GB             |
 | <img width="16" height="16" src="https://archlinux.org/static/favicon.png" /> Arch                                                                                                                                                                                                                                                                                     | Rolling                               | 512 MB    | 5 GB             |
 | <img width="16" height="16" src="https://www.gentoo.org/assets/img/logo/gentoo-g.png" /> Gentoo                                                                                                                                                                                                                                                                        | Rolling                               | 512 MB    | 5 GB             |
 | <img width="16" height="16" src="https://aosc.io/assets/distros/aosc-os.svg" /> AOSC OS                                                                                                                                                                                                                                                                                | Rolling                               | 512 MB    | 5 GB             |
@@ -71,7 +71,7 @@ curl -O https://raw.githubusercontent.com/bin456789/reinstall/main/reinstall.sh 
 For server inside China:
 
 ```bash
-curl -O https://gitlab.com/bin456789/reinstall/-/raw/main/reinstall.sh || wget -O reinstall.sh $_
+curl -O https://cnb.cool/bin456789/reinstall/-/git/raw/main/reinstall.sh || wget -O reinstall.sh $_
 ```
 
 ## Download (Current system is <img width="20" height="20" src="https://blogs.windows.com/wp-content/uploads/prod/2022/09/cropped-Windows11IconTransparent512-32x32.png" /> Windows)
@@ -104,7 +104,7 @@ certutil -urlcache -f -split https://raw.githubusercontent.com/bin456789/reinsta
 For server inside China:
 
 ```batch
-certutil -urlcache -f -split https://gitlab.com/bin456789/reinstall/-/raw/main/reinstall.bat
+certutil -urlcache -f -split https://cnb.cool/bin456789/reinstall/-/git/raw/main/reinstall.bat
 ```
 
 ## Usage
@@ -126,24 +126,24 @@ certutil -urlcache -f -split https://gitlab.com/bin456789/reinstall/-/raw/main/r
 
 ```bash
 bash reinstall.sh anolis      7|8|23
-                  opencloudos 8|9|23
-                  rocky       8|9
-                  redhat      8|9   --img="http://xxx.com/xxx.qcow2"
+                  rocky       8|9|10
                   oracle      8|9
-                  almalinux   8|9
+                  almalinux   8|9|10
+                  opencloudos 8|9|23
                   centos      9|10
-                  fedora      40|41
-                  nixos       24.11
+                  fedora      41|42
+                  nixos       25.05
                   debian      9|10|11|12
                   opensuse    15.6|tumbleweed
-                  alpine      3.18|3.19|3.20|3.21
-                  openeuler   20.03|22.03|24.03|24.09
-                  ubuntu      16.04|18.04|20.04|22.04|24.04|24.10 [--minimal]
+                  alpine      3.19|3.20|3.21|3.22
+                  openeuler   20.03|22.03|24.03|25.03
+                  ubuntu      16.04|18.04|20.04|22.04|24.04|25.04 [--minimal]
                   kali
                   arch
                   gentoo
                   aosc
                   fnos
+                  redhat      --img="http://access.cdn.redhat.com/xxx.qcow2"
 ```
 
 #### Optional Parameters
@@ -160,12 +160,13 @@ bash reinstall.sh anolis      7|8|23
   - `--ssh-key C:\path\to\public_key`
 - `--ssh-port PORT` Change the SSH port (for log observation during installation and for the new system)
 - `--web-port PORT` Change the Web port (for log observation during installation)
+- `--frpc-toml /path/to/frpc.toml` Add frpc for intranet tunneling
 - `--hold 2` Prevent reboot after installation completes, allowing SSH login to modify system content; the system is mounted at `/os` (this feature is not supported on Debian/Kali).
 
 > [!TIP]
-> When installing Debian/Kali, x86 architectures can monitor the installation progress through VNC in the background, while ARM architectures can use the serial console.
+> When installing Debian/Kali, x86 architectures can monitor the installation progress through VNC from server provider, while ARM architectures can use the serial console.
 >
-> When installing other systems, can monitor the progress through various methods (SSH, HTTP 80 port, VNC in the background, serial console).
+> When installing other systems, can monitor the progress through various methods (SSH, HTTP 80 port, VNC from server provider, serial console).
 > <br />Even if errors occur during the installation process, you can still install to Alpine via SSH by running `/trans.sh alpine`
 
 <details>
@@ -210,16 +211,17 @@ bash reinstall.sh ubuntu --installer
 bash reinstall.sh dd --img "https://example.com/xxx.xz"
 ```
 
-#### Optional parameters
+#### Optional Parameters
 
-- `--allow-ping` Allow ping responses (DD Windows only)
+- `--allow-ping` Configure Windows Firewall to Allow Ping Responses (DD Windows only)
 - `--rdp-port PORT` Change RDP port (DD Windows only)
 - `--ssh-port PORT` Change SSH port (for log observation during installation)
 - `--web-port PORT` Change Web port (for log observation during installation)
+- `--frpc-toml /path/to/frpc.toml` Add frpc for intranet tunneling (DD Windows only)
 - `--hold 2` Prevent reboot after the DD process finishes, allowing SSH login to modify system content. The Windows system will be mounted at `/os`, but Linux systems will **NOT** be automatically mounted.
 
 > [!TIP]
-> Can monitor the progress through various methods (SSH, HTTP 80 port, VNC in the background, serial console).
+> Can monitor the progress through various methods (SSH, HTTP 80 port, VNC from server provider, serial console).
 > <br />Even if errors occur during the installation process, you can still install to Alpine via SSH by running `/trans.sh alpine`
 
 ### Feature 3: Reboot to <img width="16" height="16" src="https://www.alpinelinux.org/alpine-logo.ico" /> Alpine Live OS (RAM OS)
@@ -232,7 +234,7 @@ bash reinstall.sh dd --img "https://example.com/xxx.xz"
 bash reinstall.sh alpine --hold=1
 ```
 
-#### Optional parameters
+#### Optional Parameters
 
 - `--password PASSWORD` Set password
 - `--ssh-port PORT` Change SSH port
@@ -245,6 +247,7 @@ bash reinstall.sh alpine --hold=1
   - `--ssh-key gitlab:your_username`
   - `--ssh-key /path/to/public_key`
   - `--ssh-key C:\path\to\public_key`
+- `--frpc-toml /path/to/frpc.toml` Add frpc for intranet tunneling
 
 ### Feature 4: Reboot to <img width="16" height="16" src="https://netboot.xyz/img/favicon.ico" /> netboot.xyz
 
@@ -275,10 +278,7 @@ bash reinstall.sh netboot.xyz
   - Hyper-V Server \*
   - Azure Stack HCI \*
 
-#### ~~Method 1: Let the Script Automatically Search for ISO~~
-
-> [!CAUTION]
-> The ISO repository currently prohibits direct link downloads, so this method is no longer effective.
+#### Method 1: Let the Script Automatically Search for ISO
 
 - The script will search for ISOs from <https://massgrave.dev/genuine-installation-media>, a site that collects official ISOs.
 - Systems marked with \* do not support automatic ISO searching.
@@ -381,29 +381,32 @@ bash reinstall.sh windows \
 
 </details>
 
-#### Optional parameters
+#### Optional Parameters
 
 - `--password PASSWORD` Set Password
-- `--allow-ping` Configures the Windows firewall to allow ping requests
+- `--allow-ping` Configure Windows Firewall to Allow Ping Responses
 - `--rdp-port PORT` Change RDP port
 - `--ssh-port PORT` Change SSH port (for log observation during installation)
 - `--web-port PORT` Change Web port (for log observation during installation)
 - `--add-driver INF_OR_DIR` Add additional driver, specifying .inf path, or the folder contains .inf file.
   - The driver must be downloaded locally first.
   - This parameter can be set multiple times to add different driver.
+- `--frpc-toml /path/to/frpc.toml` Add frpc for intranet tunneling
 - `--hold 2` Allow SSH connections for modifying the disk content before rebooting into the official Windows installation program, with the disk mounted at `/os`.
 
 #### The following drivers will automatic download and install as needed, without the need for manual addition
 
-- Virtio ([Virtio][virtio-virtio]，[Alibaba Cloud][virtio-aliyun])
+- Virtio ([Virtio][virtio-virtio], [Alibaba Cloud][virtio-aliyun], [Tencent Cloud][virtio-qcloud], [GCP][virtio-gcp])
 - XEN ([~~XEN~~][xen-xen] (unsigned), [Citrix][xen-citrix], [AWS][xen-aws])
 - AWS ([ENA Network Adapter][aws-ena], [NVME Storage Controller][aws-nvme])
 - GCP ([gVNIC Network Adapter][gcp-gvnic], [GGA Display Adapter][gcp-gga])
 - Azure ([MANA Network Adapter][azure-mana])
-- Intel ([VMD Storage Controller][intel-vmd], Network Adapter: [7][intel-nic-7-sha1], [8][intel-nic-8], [8.1][intel-nic-8.1], [10][intel-nic-10], [11][intel-nic-11], [2008 R2][intel-nic-7-sha1], [2012][intel-nic-2012], [2012 R2][intel-nic-2012-r2], [2016][intel-nic-2016], [2019][intel-nic-2019], [2022][intel-nic-2022], [2025][intel-nic-2025])
+- Intel ([VMD Storage Controller][intel-vmd], Network Adapter: [7][intel-nic-7], [8][intel-nic-8], [8.1][intel-nic-8.1], [10][intel-nic-10], [11][intel-nic-11], [2008 R2][intel-nic-2008-r2], [2012][intel-nic-2012], [2012 R2][intel-nic-2012-r2], [2016][intel-nic-2016], [2019][intel-nic-2019], [2022][intel-nic-2022], [2025][intel-nic-2025])
 
 [virtio-virtio]: https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/
 [virtio-aliyun]: https://www.alibabacloud.com/help/ecs/user-guide/install-the-virtio-driver-1
+[virtio-qcloud]: https://cloud.tencent.com/document/product/213/17815#b84b2032-752c-43c4-a509-73530b8f82ff
+[virtio-gcp]: https://console.cloud.google.com/storage/browser/gce-windows-drivers-public
 [xen-xen]: https://xenproject.org/resources/downloads/
 [xen-aws]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/xen-drivers-overview.html
 [xen-citrix]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Upgrading_PV_drivers.html#win2008-citrix-upgrade
@@ -412,14 +415,13 @@ bash reinstall.sh windows \
 [gcp-gvnic]: https://cloud.google.com/compute/docs/networking/using-gvnic
 [gcp-gga]: https://cloud.google.com/compute/docs/instances/enable-instance-virtual-display
 [azure-mana]: https://learn.microsoft.com/azure/virtual-network/accelerated-networking-mana-windows
-[intel-vmd]: https://www.intel.com/content/www/us/en/download/720755/intel-rapid-storage-technology-driver-installation-software-with-intel-optane-memory-11th-up-to-13th-gen-platforms.html
-[intel-nic-7-sha1]: https://www.intel.com/content/www/us/en/download/15590/29323/intel-network-adapter-driver-for-windows-7-final-release.html
-[intel-nic-7-sha256]: https://www.intel.com/content/www/us/en/download/15590/intel-network-adapter-driver-for-windows-7-final-release.html
+[intel-vmd]: https://www.intel.com/content/www/us/en/download/849936/intel-rapid-storage-technology-driver-installation-software-with-intel-optane-memory-12th-to-15th-gen-platforms.html
+[intel-nic-7]: https://www.intel.com/content/www/us/en/download/15590/intel-network-adapter-driver-for-windows-7-final-release.html
 [intel-nic-8]: https://www.intel.com/content/www/us/en/download/16765/intel-network-adapter-driver-for-windows-8-final-release.html
 [intel-nic-8.1]: https://www.intel.com/content/www/us/en/download/17479/intel-network-adapter-driver-for-windows-8-1.html
 [intel-nic-10]: https://www.intel.com/content/www/us/en/download/18293/intel-network-adapter-driver-for-windows-10.html
 [intel-nic-11]: https://www.intel.com/content/www/us/en/download/727998/intel-network-adapter-driver-for-microsoft-windows-11.html
-[intel-nic-2008-r2-sha256]: https://www.intel.com/content/www/us/en/download/15591/intel-network-adapter-driver-for-windows-server-2008-r2-final-release.html
+[intel-nic-2008-r2]: https://www.intel.com/content/www/us/en/download/15591/intel-network-adapter-driver-for-windows-server-2008-r2-final-release.html
 [intel-nic-2012]: https://www.intel.com/content/www/us/en/download/16789/intel-network-adapter-driver-for-windows-server-2012.html
 [intel-nic-2012-r2]: https://www.intel.com/content/www/us/en/download/17480/intel-network-adapter-driver-for-windows-server-2012-r2.html
 [intel-nic-2016]: https://www.intel.com/content/www/us/en/download/18737/intel-network-adapter-driver-for-windows-server-2016.html
@@ -463,7 +465,7 @@ Open File menu > Open Image File, select the iso to be installed to get the imag
 
 #### Considerations for Installing Windows on ARM
 
-Most ARM machines support installing Windows 11 24H2.
+Most ARM machines support installing latest Windows 11.
 
 During the installation process, you might encounter a black screen, and the serial console may display `ConvertPages: failed to find range`, but neither issue affects the installation.
 
